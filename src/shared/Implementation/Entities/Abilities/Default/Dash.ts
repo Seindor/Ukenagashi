@@ -93,7 +93,7 @@ export function Dash(ownerId: string) {
             states: ["Idle"],
             lastUsed: 0,
             types: [{ name: "Movement", level: 1 }],
-            additionalBlacklist: ["WeaponClick"],
+            additionalBlacklist: ["WeaponClick", "Block"],
             cooldown: 2,
             duration: DASH_DURATION,
             minDuration: DASH_DURATION,
@@ -165,7 +165,12 @@ export function Dash(ownerId: string) {
                 const direction2d = motion.GetDirection2D();
                 const localDir = DIRECTION_VECTORS[direction2d] ?? new Vector3(0, 0, -1);
 
-                ClientSignals.Ability.fire("Default_Dash", "Start", ANIM_NAMES[direction2d]);
+                ClientSignals.Ability.fire(
+                    "Default_Dash",
+                    "Swtich",
+                    "Start",
+                    ANIM_NAMES[direction2d],
+                );
 
                 let elapsed = 0;
 
@@ -183,11 +188,13 @@ export function Dash(ownerId: string) {
                 animName = `${ANIM_NAMES[direction2d]}${prefix}`;
                 let characterName = entity.miscData.get("CharacterName")!;
                 let lastAction = (entity.miscData.get("LastAction") as boolean) ?? false;
-                let secondWord = lastAction ? "Equipped" : "Unequipped";
-                let animPack = `${characterName}_${secondWord}`;
+                let dashsPackWord = lastAction ? "Unsheath" : "Sheath";
 
                 let anim = animator.PlayAnimation(
-                    Animations.FindFirstChild(animPack)!.FindFirstChild(animName) as Animation,
+                    Animations.FindFirstChild(characterName)!
+                        .FindFirstChild("Dashes")!
+                        .FindFirstChild(dashsPackWord)!
+                        .FindFirstChild(animName) as Animation,
                     ANIM_NAMES[direction2d],
                     true,
                     Enum.AnimationPriority.Action,
@@ -246,7 +253,7 @@ export function Dash(ownerId: string) {
                 Interrupt();
             },
             onReject(serverReject?: boolean) {
-                if (serverReject) {
+                if (serverReject === true) {
                     Interrupt();
                 }
             },

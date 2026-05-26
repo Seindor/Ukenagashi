@@ -27,48 +27,96 @@ const Animations = Assets.WaitForChild("Animations") as Folder;
 const DefaultAnimations = Animations.WaitForChild("Default") as IAnimations;
 
 const timings = {
-    M1_1: {
-        duration: 0.5,
-        cooldown: 0.583,
-        events: {
-            ["mark"]: 0.25,
-            ["swingreg"]: 0.333,
-            ["swingend"]: 0.5,
-            ["hitreg"]: 0.416,
-            ["hitend"]: 0.5,
+    Equipped: {
+        M1_1: {
+            duration: 0.5,
+            cooldown: 0.583,
+            events: {
+                ["mark"]: 0.25,
+                ["swingreg"]: 0.333,
+                ["swingend"]: 0.5,
+                ["hitreg"]: 0.416,
+                ["hitend"]: 0.5,
+            },
+        },
+        M1_2: {
+            duration: 0.5,
+            cooldown: 0.583,
+            events: {
+                ["mark"]: 0.216,
+                ["swingreg"]: 0.316,
+                ["swingend"]: 0.5,
+                ["hitreg"]: 0.383,
+                ["hitend"]: 0.45,
+            },
+        },
+        M1_3: {
+            duration: 0.5,
+            cooldown: 0.583,
+            events: {
+                ["mark"]: 0.216,
+                ["swingreg"]: 0.316,
+                ["swingend"]: 0.5,
+                ["hitreg"]: 0.416,
+                ["hitend"]: 0.466,
+            },
+        },
+        M1_4: {
+            duration: 0.5,
+            cooldown: 1.5,
+            events: {
+                ["mark"]: 0.25,
+                ["swingreg"]: 0.316,
+                ["swingend"]: 0.5,
+                ["hitreg"]: 0.4,
+                ["hitend"]: 0.45,
+            },
         },
     },
-    M1_2: {
-        duration: 0.5,
-        cooldown: 0.583,
-        events: {
-            ["mark"]: 0.216,
-            ["swingreg"]: 0.316,
-            ["swingend"]: 0.5,
-            ["hitreg"]: 0.383,
-            ["hitend"]: 0.45,
+    Unequipped: {
+        M1_1: {
+            duration: 0.5,
+            cooldown: 0.583,
+            events: {
+                ["mark"]: 0.33,
+                ["swingreg"]: 0.35,
+                ["swingend"]: 0.5,
+                ["hitreg"]: 0.35,
+                ["hitend"]: 0.416,
+            },
         },
-    },
-    M1_3: {
-        duration: 0.5,
-        cooldown: 0.583,
-        events: {
-            ["mark"]: 0.216,
-            ["swingreg"]: 0.316,
-            ["swingend"]: 0.5,
-            ["hitreg"]: 0.416,
-            ["hitend"]: 0.466,
+        M1_2: {
+            duration: 0.5,
+            cooldown: 0.583,
+            events: {
+                ["mark"]: 0.216,
+                ["swingreg"]: 0.316,
+                ["swingend"]: 0.5,
+                ["hitreg"]: 0.383,
+                ["hitend"]: 0.45,
+            },
         },
-    },
-    M1_4: {
-        duration: 0.5,
-        cooldown: 1.5,
-        events: {
-            ["mark"]: 0.25,
-            ["swingreg"]: 0.316,
-            ["swingend"]: 0.5,
-            ["hitreg"]: 0.4,
-            ["hitend"]: 0.45,
+        M1_3: {
+            duration: 0.5,
+            cooldown: 0.583,
+            events: {
+                ["mark"]: 0.216,
+                ["swingreg"]: 0.316,
+                ["swingend"]: 0.5,
+                ["hitreg"]: 0.416,
+                ["hitend"]: 0.466,
+            },
+        },
+        M1_4: {
+            duration: 0.5,
+            cooldown: 1.5,
+            events: {
+                ["mark"]: 0.25,
+                ["swingreg"]: 0.316,
+                ["swingend"]: 0.5,
+                ["hitreg"]: 0.4,
+                ["hitend"]: 0.45,
+            },
         },
     },
 };
@@ -81,13 +129,15 @@ export function M1(ownerId: string) {
             states: ["Idle"],
             lastUsed: 0,
             types: [{ name: "Combat", level: 1 }],
-            additionalBlacklist: ["Dash", "WeaponClick"],
+            additionalBlacklist: ["Dash", "WeaponClick", "Block"],
             cooldown: 0,
             duration: 0,
             minDuration: 0,
         },
         {
             onStartCheck() {
+                task.wait(PingUitl.GetNetworkPing(ownerId));
+
                 if (
                     replicatedStatusEffectsAPI.CheckReplicatedStatuses(
                         ownerId,
@@ -114,28 +164,6 @@ export function M1(ownerId: string) {
                 return true;
             },
             onStart() {
-                task.wait(PingUitl.GetNetworkPing(ownerId));
-
-                if (
-                    replicatedStatusEffectsAPI.CheckReplicatedStatuses(
-                        ownerId,
-                        ability.GetBlacklist(),
-                        ability.config.ignoreList ?? [],
-                    )
-                ) {
-                    return;
-                }
-
-                if (
-                    replicatedStatusEffectsAPI.CheckClientStatuses(
-                        ownerId,
-                        ability.GetBlacklist(),
-                        ability.config.ignoreList ?? [],
-                    )
-                ) {
-                    return;
-                }
-
                 let entity = entitiesStorageAPI.GetEntity(ownerId)!;
                 let character = entity.entity as Model;
                 let weaponCurrentClick = replicatedStatusEffectsAPI.GetReplicatedStatus(
@@ -151,9 +179,9 @@ export function M1(ownerId: string) {
                     return;
                 }
 
-                let timing = timings[`M1_${currentClick}` as keyof typeof timings];
-
-                print(currentClick);
+                let timingPackName = entity.miscData.get("LastAction") ? "Equipped" : "Unequipped";
+                let timingPack = timings[timingPackName as keyof typeof timings];
+                let timing = timingPack[`M1_${currentClick}` as keyof typeof timings.Equipped];
 
                 ability.config.cooldown = timing.cooldown;
 
@@ -177,10 +205,24 @@ export function M1(ownerId: string) {
                     PingUitl.GetRealPing(ownerId),
                     timings,
                 );
-                ClientSignals.Ability.fire("Sekiro_M1", "Start");
+                ClientSignals.Ability.fire(
+                    "Sekiro_M1",
+                    "Switch",
+                    "Start",
+                    (entity.miscData.get("LastAction") as boolean) || false,
+                );
             },
             onEnd() {},
-            onInterrupt() {},
+            onInterrupt(currentClick: number) {
+                let sekiroVFXs = VFXModules.Sekiro();
+                let entity = entitiesStorageAPI.GetEntity(ownerId)!;
+                let character = entity.entity as Model;
+
+                print("Shared_M1_Interrupt", ownerId);
+
+                replicatedStatusEffectsAPI.RemoveStatus(ownerId, "WeaponClick");
+                sekiroVFXs.Destroy_M1(ownerId, character, currentClick);
+            },
             onReject(serverReject?: boolean) {},
         },
     );

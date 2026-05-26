@@ -27,6 +27,7 @@ export function Run(ownerId: string) {
             name: "Default_Run",
             ownerId,
             states: ["Idle"],
+            additionalBlacklist: ["Dash", "Block", "WeaponClick"],
             lastUsed: 0,
             types: [{ name: "Movement", level: 1 }],
             cooldown: 0,
@@ -53,6 +54,7 @@ export function Run(ownerId: string) {
                         ServerSignals.Ability.fire(
                             Players.GetPlayerFromCharacter(character)!,
                             "Default_Run",
+                            "Hold",
                             "Reject",
                             true,
                         );

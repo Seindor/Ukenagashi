@@ -52,5 +52,5 @@ export function CreatePack(packName: string, ownerId: string): PackResult {
         };
     }
 
-    return result;
+    return result as PackResult;
 }

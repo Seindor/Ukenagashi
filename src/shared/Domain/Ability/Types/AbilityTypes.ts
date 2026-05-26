@@ -1,8 +1,10 @@
 import { Janitor } from "@rbxts/janitor";
 import type { StatusId } from "shared/Types/GlobalStatusEffectsTypes";
+
 export type IStatusId = StatusId;
 
-export type IAbilityStates = ["Idle", "Casting", "Active", "Pressed", "Cooldown", "Locked"][number];
+export type IAbilityStates = ["Idle", "Casting", "Active", "Holding", "Cooldown", "Locked"][number];
+
 export type IAbilityTypes = [
     "Combat",
     "Support",
@@ -27,7 +29,7 @@ export interface IAbilityBehaviour {
     onInterrupt(...args: unknown[]): void;
     onReject?(...args: unknown[]): void;
 
-    [key: string]: any;
+    [key: string]: unknown;
 }
 
 export interface IAbilityConfig {
@@ -46,6 +48,8 @@ export interface IAbilityConfig {
     cooldown: number;
     duration: number;
     minDuration: number;
+
+    manualEnd?: boolean;
 
     ignoreList?: { id: IStatusId; maxPriority: number }[];
     additionalBlacklist?: IStatusId[];

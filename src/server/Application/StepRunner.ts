@@ -3,8 +3,8 @@ import { CompositionRootServer } from "server/DI/CompositionRootServer";
 
 const ServerScope = CompositionRootServer.createScope();
 
-const TracleClipAPI = ServerScope.resolve(ServerRegistry.Singletons.API.TraceClipAPI);
-const GameEffectsAPI = ServerScope.resolve(ServerRegistry.Singletons.API.GameEffectsAPI);
+const traceClipAPI = ServerScope.resolve(ServerRegistry.Singletons.API.TraceClipAPI);
+const gameEffectsAPI = ServerScope.resolve(ServerRegistry.Singletons.API.GameEffectsAPI);
 
 import type {
     GameEffectsStepContext,
@@ -14,6 +14,7 @@ import type {
     GameEffectsLimitsOverride,
     GameEffectsLimitModifier,
 } from "server/Domain/GameEffectsQueue/Types/GameEffectsQueueTypes";
+import { Service } from "@flamework/core";
 
 type EmitFn = (effect: Omit<GameEffect, "order" | "stepId" | "stepType">) => void;
 
@@ -35,13 +36,11 @@ export interface StepRunResult {
     queued: number;
 }
 
+@Service()
 export class StepRunner {
     private nextStepIndex = 0;
 
-    constructor(
-        private gameEffects: typeof GameEffectsAPI,
-        private trace: typeof TracleClipAPI,
-    ) {}
+    constructor() {}
 
     private newStepId(prefix: string) {
         this.nextStepIndex++;
@@ -66,9 +65,9 @@ export class StepRunner {
             limitModifiers: params.limitModifiers,
         };
 
-        const queue = this.gameEffects.createStepQueue();
+        const queue = gameEffectsAPI.createStepQueue();
 
-        this.trace.log(
+        traceClipAPI.log(
             params.ownerId,
             "Step",
             `StepStart ${step.stepType}${params.debugLabel ? ` (${params.debugLabel})` : ""}`,
@@ -80,16 +79,16 @@ export class StepRunner {
         );
 
         const emit: EmitFn = (effect) => {
-            this.gameEffects.enqueue(step, queue, {
+            gameEffectsAPI.enqueue(step, queue, {
                 ...effect,
             });
         };
 
         seed(emit, step);
 
-        const results = this.gameEffects.flush(step, queue);
+        const results = gameEffectsAPI.flush(step, queue);
 
-        this.trace.log(
+        traceClipAPI.log(
             params.ownerId,
             "Step",
             `StepEnd ${step.stepType} executed=${results.size()}`,

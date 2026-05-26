@@ -15,6 +15,9 @@ export class AnimatorAggregate {
     public animator: Animator;
 
     public animationsTracks = new Map<string, AnimationTrack>();
+
+    private animationCache = new Map<string, AnimationTrack>();
+
     private motorOffsets = new Map<MotorName, MotorOffsetState>();
     private activeMotorMoves = new Map<string, ActiveMotorMove>();
 
@@ -103,6 +106,23 @@ export class AnimatorAggregate {
         return findAll ? matchedTracks : undefined;
     }
 
+    public PreloadAnimation(animation: Animation): AnimationTrack {
+        const animationId = animation.AnimationId;
+
+        const cached = this.animationCache.get(animationId);
+        if (cached) {
+            return cached;
+        }
+
+        const track = this.animator.LoadAnimation(animation);
+
+        track.Priority = Enum.AnimationPriority.Action;
+
+        this.animationCache.set(animationId, track);
+
+        return track;
+    }
+
     public PlayAnimation(
         animation: Animation,
         animationName: string,
@@ -121,11 +141,19 @@ export class AnimatorAggregate {
                 return existingTrack;
             }
 
-            existingTrack.Stop();
+            existingTrack.Stop(0);
             this.animationsTracks.delete(animationName);
         }
 
-        const animationTrack = this.animator.LoadAnimation(animation);
+        const animationId = animation.AnimationId;
+
+        let animationTrack = this.animationCache.get(animationId);
+
+        if (!animationTrack) {
+            animationTrack = this.animator.LoadAnimation(animation);
+            this.animationCache.set(animationId, animationTrack);
+        }
+
         animationTrack.Priority = animationPriority ?? animationTrack.Priority;
         animationTrack.Looped = looped ?? animationTrack.Looped;
 
@@ -139,8 +167,15 @@ export class AnimatorAggregate {
             }
         });
 
-        animationTrack.Play(fadeTime ?? 0.1, weight ?? 1, speed ?? 1);
-        animationTrack.AdjustSpeed((animation.GetAttribute("Speed") as number) ?? 1 * (speed ?? 1));
+        animationTrack.TimePosition = 0;
+
+        let playingFadeTime = fadeTime ?? 0.15;
+
+        animationTrack.Play(playingFadeTime, weight ?? 1, speed ?? 1);
+
+        animationTrack.AdjustSpeed(
+            ((animation.GetAttribute("Speed") as number) ?? 1) * (speed ?? 1),
+        );
 
         this.animationsTracks.set(animationName, animationTrack);
 
@@ -653,7 +688,7 @@ export class AnimatorAggregate {
         }
     }
 
-    public StopAllAnimations(fadeTime = 0.1) {
+    public StopAllAnimations(fadeTime = 0.15) {
         const animationNames = new Array<string>();
 
         for (const [name] of this.animationsTracks) {
@@ -678,10 +713,16 @@ export class AnimatorAggregate {
             }
 
             for (const name of animationNames) {
-                this.animationsTracks.get(name)?.Stop();
+                this.animationsTracks.get(name)?.Stop(0.15);
                 this.animationsTracks.delete(name);
             }
         }
+
+        for (const [, track] of this.animationCache) {
+            track.Destroy();
+        }
+
+        this.animationCache.clear();
 
         const activeMoveNames = new Array<string>();
 

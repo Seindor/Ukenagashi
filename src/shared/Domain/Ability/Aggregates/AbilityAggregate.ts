@@ -16,7 +16,10 @@ import { ArrayHelper } from "shared/Utilities/ArrayHelper";
 export class AbilityAggregate implements IAbility {
     readonly config: IAbilityConfig;
     readonly behaviours: IAbilityBehaviour;
+
     public _janitor = new Janitor<any>();
+
+    private ending = false;
 
     constructor(_config: IAbilityConfig, _behaviours: IAbilityBehaviour) {
         this.config = _config;
@@ -24,33 +27,35 @@ export class AbilityAggregate implements IAbility {
     }
 
     private validateDuration(check: boolean) {
-        const validateDurationConnection = RunService.Heartbeat.Connect(() => {
+        this._janitor.Remove("validateDuration");
+
+        if (this.config.manualEnd) return;
+        if (this.config.duration === math.huge) return;
+
+        const connection = RunService.Heartbeat.Connect(() => {
+            if (!this.HasState("Active")) {
+                this._janitor.Remove("validateDuration");
+                return;
+            }
+
             const now = os.clock();
-            if (this.HasState("Pressed")) {
-                const elapsed = now - (this.config.lastUsed ?? 0);
-                if (elapsed >= this.config.duration) {
-                    this.RemoveState("Active");
-                    this.Execute("End", check);
-                    this._janitor.Remove("validateDuration");
-                }
-            } else {
-                const elapsed = now - (this.config.lastUsed ?? 0);
-                if (elapsed >= this.config.minDuration) {
-                    this.RemoveState("Active");
-                    this.Execute("End", check);
-                    this._janitor.Remove("validateDuration");
-                }
+            const elapsed = now - this.config.lastUsed;
+
+            if (elapsed >= this.config.duration) {
+                this.Execute("End", check);
             }
         });
 
-        this._janitor.Add(validateDurationConnection, "Disconnect", "validateDuration");
+        this._janitor.Add(connection, "Disconnect", "validateDuration");
     }
 
     private validateCooldown() {
+        this._janitor.Remove("validateCooldown");
+
         const connection = RunService.Heartbeat.Connect(() => {
-            const oncd = this.OnCooldown();
-            if (!oncd) {
+            if (!this.OnCooldown()) {
                 this.RemoveState("Cooldown");
+                this.AddState("Idle");
                 this._janitor.Remove("validateCooldown");
             }
         });
@@ -58,16 +63,18 @@ export class AbilityAggregate implements IAbility {
         this._janitor.Add(connection, "Disconnect", "validateCooldown");
     }
 
-    private validateAbility(check: boolean): boolean {
-        if (check) {
-            if (this.HasState("Locked") || this.HasState("Active")) return false;
+    private canStart(check: boolean): boolean {
+        if (!check) return true;
+        if (this.HasState("Locked")) return false;
+        if (this.HasState("Active")) return false;
+        if (this.HasState("Cooldown")) return false;
+        return true;
+    }
 
-            if (this.HasState("Cooldown")) {
-                return false;
-            }
-
-            return true;
-        } else return true;
+    private canEnd(check: boolean): boolean {
+        if (!this.HasState("Active")) return false;
+        if (this.ending) return false;
+        return true;
     }
 
     public AddState(state: IAbilityStates) {
@@ -83,22 +90,14 @@ export class AbilityAggregate implements IAbility {
     }
 
     public AddTag(tag: string) {
-        if (!this.config.tags) {
-            this.config.tags = [];
-        }
-
-        if (!this.config.tags.includes(tag)) {
-            this.config.tags.push(tag);
-        }
+        if (!this.config.tags) this.config.tags = [];
+        if (!this.config.tags.includes(tag)) this.config.tags.push(tag);
     }
 
     public RemoveTag(tag: string) {
         if (!this.config.tags) return;
-
         const index = this.config.tags.indexOf(tag);
-        if (index !== -1) {
-            this.config.tags.remove(index);
-        }
+        if (index !== -1) this.config.tags.remove(index);
     }
 
     public HasTag(tag: string): boolean {
@@ -112,36 +111,62 @@ export class AbilityAggregate implements IAbility {
     public GetBlacklist(): IStatusId[] {
         const global = IAbilityBlacklist;
         const additional = this.config.additionalBlacklist ?? [];
-
         return [...global, ...additional];
     }
 
     public Execute(callBackName: "Start" | "End", check: boolean, ...args: unknown[]) {
-        if (!this.validateAbility(check)) return;
-
-        this.RemoveState("Idle");
-        this.config.lastUsed = os.clock();
-
         if (callBackName === "Start") {
+            if (!this.canStart(check)) {
+                this.behaviours.onReject?.(...args);
+                return;
+            }
+
+            if (check && this.behaviours.onStartCheck(...args) !== true) {
+                this.behaviours.onReject?.(...args);
+                return;
+            }
+
+            this.RemoveState("Idle");
+
+            this.config.lastUsed = os.clock();
+
             this.AddState("Active");
+            this.ending = false;
+
+            this.behaviours.onStart(...args);
+
             this.validateDuration(check);
-        } else {
-            this.AddState("Cooldown");
-            this.validateCooldown();
+            return;
         }
 
-        if (check) {
-            if (this.behaviours[`on${callBackName}Check`](...args) === true) {
-                this.behaviours[`on${callBackName}`](...args);
-            } else {
-                this.behaviours.onReject?.(...args);
-            }
-        } else this.behaviours[`on${callBackName}`](...args);
+        if (!this.canEnd(check)) return;
+
+        if (check && this.behaviours.onEndCheck(...args) !== true) return;
+
+        this.ending = true;
+
+        this.RemoveState("Active");
+        this.RemoveState("Holding");
+
+        this.AddState("Cooldown");
+
+        this.behaviours.onEnd(...args);
+
+        this.validateCooldown();
+
+        task.defer(() => {
+            this.ending = false;
+        });
     }
 
     public Interrupt(...args: unknown[]) {
+        // if (!this.HasState("Active")) {
+        //     print("RETURNRR");
+        //     return;
+        // }
+
         this.RemoveState("Active");
-        this.RemoveState("Pressed");
+        this.RemoveState("Holding");
 
         this.behaviours.onInterrupt(...args);
     }
@@ -156,11 +181,7 @@ export class AbilityAggregate implements IAbility {
 
     public OnCooldown(): boolean {
         const now = os.clock();
-        if (now - this.config.lastUsed <= this.config.cooldown) {
-            return true;
-        } else {
-            return false;
-        }
+        return now - this.config.lastUsed <= this.config.cooldown;
     }
 
     public Destroy() {

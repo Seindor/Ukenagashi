@@ -25,7 +25,7 @@ export function Dash(ownerId: string) {
             states: ["Idle"],
             lastUsed: 0,
             types: [{ name: "Movement", level: 1 }],
-            additionalBlacklist: ["WeaponClick"],
+            additionalBlacklist: ["WeaponClick", "Block"],
             cooldown: 0,
             duration: 0,
             minDuration: 0,
@@ -42,9 +42,11 @@ export function Dash(ownerId: string) {
                     )
                 ) {
                     if (entity.HasTag("Player")) {
+                        print("Server_Dash_Reject");
                         ServerSignals.Ability.fire(
                             Players.GetPlayerByUserId(tonumber(ownerId)!)!,
                             "Default_Dash",
+                            "Switch",
                             "Reject",
                             undefined,
                             true,
@@ -66,6 +68,13 @@ export function Dash(ownerId: string) {
 
                 statusEffectsAPI.CreateStatus("Dash", { duration: 0.5 }, true, ownerId);
                 statusEffectsAPI.CreateStatus("Dodge", { duration: 0.3 }, true, ownerId);
+
+                entity.miscData.set("LastLaunchedVFX", [
+                    "Default_Dash",
+                    "Dash_Emit",
+                    character,
+                    ownerId,
+                ]);
 
                 ServerSignals.LaunchVFX.except(
                     Players.GetPlayerByUserId(tonumber(ownerId)!)!,

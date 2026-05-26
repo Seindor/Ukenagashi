@@ -1,5 +1,5 @@
 import { AbilityAggregate } from "../Aggregates/AbilityAggregate";
-import { IAbility, IAbilityType, IAbilityConfig, IAbilityBehaviour } from "../Types/AbilityTypes";
+import { IAbilityType, IAbilityConfig, IAbilityBehaviour } from "../Types/AbilityTypes";
 
 export class AbilityService {
     private readonly BlockedTags = new Map<string, IAbilityType[]>();
@@ -16,15 +16,16 @@ export class AbilityService {
     }
 
     private isBlockedByTag(id: string, tags: IAbilityType[]): boolean {
-        const ownerId = id;
+        const blockedTags = this.BlockedTags.get(id);
 
-        const blockedTags = this.BlockedTags.get(ownerId);
         if (!blockedTags) return false;
 
         for (const abilityTag of tags) {
             for (const blockedTag of blockedTags) {
-                if (abilityTag.name === blockedTag.name && blockedTag.level >= abilityTag.level) {
-                    return true;
+                if (abilityTag.name === blockedTag.name) {
+                    if (blockedTag.level >= abilityTag.level) {
+                        return true;
+                    }
                 }
             }
         }
@@ -34,10 +35,6 @@ export class AbilityService {
 
     public AddBlockTags(id: string, tags: IAbilityType[]) {
         this.initActor(id);
-
-        if (!this.BlockedTags.has(id)) {
-            this.BlockedTags.set(id, []);
-        }
 
         const entityTags = this.BlockedTags.get(id)!;
 
@@ -56,6 +53,7 @@ export class AbilityService {
 
     public GetBlockTag(id: string, tagName: string): IAbilityType | undefined {
         const entityTags = this.BlockedTags.get(id);
+
         if (!entityTags) return undefined;
 
         return entityTags.find((t) => t.name === tagName);
@@ -69,13 +67,13 @@ export class AbilityService {
 
     public RemoveBlockTags(id: string, tags: string[] | "all") {
         this.initActor(id);
-        const entityTags = this.BlockedTags.get(id);
-        if (!entityTags) return;
 
         if (tags === "all") {
             this.BlockedTags.set(id, []);
             return;
         }
+
+        const entityTags = this.BlockedTags.get(id)!;
 
         this.BlockedTags.set(
             id,
@@ -84,48 +82,42 @@ export class AbilityService {
     }
 
     public ValidateAbility(ability: AbilityAggregate): boolean {
-        if (!this.Abilities.has(ability.config.ownerId)) {
-            this.Abilities.set(ability.config.ownerId, new Map<string, AbilityAggregate>());
-        }
+        this.initActor(ability.config.ownerId);
 
         const ownerAbilities = this.Abilities.get(ability.config.ownerId)!;
 
         if (ownerAbilities.has(ability.config.name)) {
             return false;
-        } else {
-            ownerAbilities.set(ability.config.name, ability);
-            return true;
         }
+
+        ownerAbilities.set(ability.config.name, ability);
+
+        return true;
     }
 
     public Create(_config: IAbilityConfig, _behaviours: IAbilityBehaviour): AbilityAggregate {
         const ability = new AbilityAggregate(_config, _behaviours);
-        this.initActor(_config.ownerId);
+
         const validate = this.ValidateAbility(ability);
 
         if (validate) {
             return ability;
-        } else {
-            const ownerAbilities = this.Abilities.get(ability.config.ownerId)!;
-            const newAbility = ownerAbilities.get(ability.config.name);
-            if (!newAbility) throw error("newAbility is undefined");
-            ability.Destroy();
-            return newAbility;
         }
+
+        const ownerAbilities = this.Abilities.get(ability.config.ownerId)!;
+        const existingAbility = ownerAbilities.get(ability.config.name);
+
+        if (!existingAbility) {
+            throw error("existingAbility is undefined");
+        }
+
+        ability.Destroy();
+
+        return existingAbility;
     }
 
     public Get(ownerId: string, abilityName: string): AbilityAggregate | undefined {
-        if (!this.Abilities.has(ownerId)) {
-            warn(`${ownerId} is undefined on Abilities.`);
-        }
-
-        const ownerAbilities = this.Abilities.get(ownerId);
-
-        if (!ownerAbilities?.has(abilityName)) {
-            warn(`${abilityName} is undefined on ${ownerId} Abilities.`);
-        }
-
-        return ownerAbilities?.get(abilityName);
+        return this.Abilities.get(ownerId)?.get(abilityName);
     }
 
     public GetAllAbilities(ownerId: string): Map<string, AbilityAggregate> | undefined {
@@ -133,11 +125,15 @@ export class AbilityService {
     }
 
     public Remove(ownerId: string, abilityName: string) {
-        if (!this.Abilities.has(ownerId)) return;
-
         const ownerAbilities = this.Abilities.get(ownerId);
 
-        if (!ownerAbilities?.has(abilityName)) return;
+        if (!ownerAbilities) return;
+
+        const ability = ownerAbilities.get(abilityName);
+
+        if (!ability) return;
+
+        ability.Destroy();
 
         ownerAbilities.delete(abilityName);
     }
@@ -148,9 +144,13 @@ export class AbilityService {
         check: boolean,
         ...args: unknown[]
     ) {
-        if (check) {
+        if (callBackName === "Start" && check) {
             const blocked = this.isBlockedByTag(ability.config.ownerId, ability.config.types);
-            if (blocked) return;
+
+            if (blocked) {
+                ability.Reject(...args);
+                return;
+            }
         }
 
         ability.Execute(callBackName, check, ...args);
@@ -158,5 +158,9 @@ export class AbilityService {
 
     public Reject(ability: AbilityAggregate, ...args: unknown[]) {
         ability.Reject(...args);
+    }
+
+    public Interrupt(ability: AbilityAggregate, ...args: unknown[]) {
+        ability.Interrupt(...args);
     }
 }

@@ -2,12 +2,18 @@ export interface PhaseResolverContext {
     miscData: Map<string, unknown>;
 }
 
+export type PhaseResolverEmitFn = (effect: {
+    effectType: string;
+    queuePriority: number;
+    payload?: unknown;
+}) => void;
+
 export interface PhaseResolverPhase<TContext extends PhaseResolverContext> {
     name: string;
     priority: number;
 
     onCheck: (ctx: TContext) => boolean;
-    onSuccess: (ctx: TContext) => void;
+    onSuccess: (ctx: TContext, emit: PhaseResolverEmitFn) => void;
     onRejected?: (ctx: TContext) => void;
 
     [key: string]: unknown;

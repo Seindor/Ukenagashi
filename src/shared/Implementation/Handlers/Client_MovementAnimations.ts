@@ -1,10 +1,10 @@
 import { ReplicatedStorage, Players, RunService } from "@rbxts/services";
-import { Controller, Dependency, OnStart } from "@flamework/core";
 
 import { SharedRegistry } from "shared/DI/Generated/SharedRegistry";
 import { CompositionRootShared } from "shared/DI/CompositionRootShared";
 import { Janitor } from "@rbxts/janitor";
 import type { MotionState } from "shared/Domain/Motion/Types/MotionTypes";
+import { ParseAliasPath, ParseRobloxAliasPath } from "shared/Utilities/GetObjectFromPath";
 
 let sharedScope = CompositionRootShared.createScope();
 
@@ -21,11 +21,10 @@ const MOVEMENT_STATE_MAP = new Map<string, string>([
 
 const RUN_SPEED_THRESHOLD = 15;
 
-@Controller()
-export class Client_MovementAnimations implements OnStart {
-    public player = Players.LocalPlayer;
-    public playerStringUserId = tostring(this.player.UserId);
-    public animationsPack = "Default";
+export class Client_MovementAnimations {
+    public animationsPack = ParseRobloxAliasPath(
+        "shared.Assets.Animations.Default.Movement",
+    ) as Folder;
 
     public enableAnimations = true as boolean;
 
@@ -42,18 +41,17 @@ export class Client_MovementAnimations implements OnStart {
         motionAPI: sharedScope.resolve(SharedRegistry.Singletons.API.MotionAPI),
     };
 
-    public buses = {
-        playerBus: this.api.eventBusAPI.New(this.playerStringUserId, "Player"),
-    };
+    public Init(ownerId: string, _character: Model) {
+        let playerBus = this.api.eventBusAPI.New(ownerId, "Player");
 
-    onStart(): void {
         this._janitor.Add(
             task.spawn(() => {
-                this.buses.playerBus.Subscribe(
+                playerBus.Subscribe(
                     "CharacterLoaded",
                     (character: Model) => {
+                        if (character !== _character) return;
                         this._characterJanitor.Cleanup();
-                        this.initAnimations(character);
+                        this.initAnimations(ownerId, character);
                     },
                     undefined,
                     "MovementAnimationsInit",
@@ -65,11 +63,12 @@ export class Client_MovementAnimations implements OnStart {
 
         this._janitor.Add(
             task.spawn(() => {
-                this.buses.playerBus.Subscribe(
+                playerBus.Subscribe(
                     "ChangeAnimationsPack",
                     (character: Model, _packName: string) => {
-                        this.animationsPack = _packName;
-                        this.initAnimations(character);
+                        if (character !== _character) return;
+                        this.animationsPack = ParseRobloxAliasPath(_packName) as Folder;
+                        this.initAnimations(ownerId, character);
                     },
                     undefined,
                     "ChangeAnimationsPack",
@@ -77,21 +76,6 @@ export class Client_MovementAnimations implements OnStart {
             }),
             true,
             "ChangeAnimationsPackOnStart",
-        );
-
-        this._janitor.Add(
-            task.spawn(() => {
-                this.buses.playerBus.Subscribe(
-                    "SwitchDefaultAnimationsVisible",
-                    (state: boolean) => {
-                        this.enableAnimations = state;
-                    },
-                    undefined,
-                    "SwitchDefaultAnimationsVisible",
-                );
-            }),
-            true,
-            "SwitchDefaultAnimationsVisible",
         );
     }
 
@@ -111,26 +95,22 @@ export class Client_MovementAnimations implements OnStart {
         return "Idle";
     }
 
-    private initAnimations(character: Model) {
+    private initAnimations(ownerId: string, character: Model) {
         const humanoid = character.WaitForChild("Humanoid") as Humanoid;
         const humanoidRootPart = character.WaitForChild("HumanoidRootPart") as BasePart;
 
-        this.StopAnimations(character);
+        this.StopAnimations(ownerId, character);
 
         const motion = this.api.motionAPI.CreateMotion(
             { RootPart: humanoidRootPart, Humanoid: humanoid },
-            this.playerStringUserId,
+            ownerId,
             "Motion",
         );
-
-        const animationsPack = ReplicatedStorage.WaitForChild("Assets")
-            .WaitForChild("Animations")
-            .WaitForChild(this.animationsPack) as Folder;
 
         const animator = this.api.animationsAPI.CreateAnimator(
             { Character: character },
             "Default_Animator",
-            this.playerStringUserId,
+            ownerId,
         );
 
         let currentAnimation: string | undefined;
@@ -146,7 +126,7 @@ export class Client_MovementAnimations implements OnStart {
 
             const isJump = state === "Jump";
 
-            let animation = animationsPack.WaitForChild(state) as Animation;
+            let animation = this.animationsPack.WaitForChild(state) as Animation;
 
             let anim = animator.PlayAnimation(
                 animation,
@@ -170,7 +150,7 @@ export class Client_MovementAnimations implements OnStart {
 
         this._characterJanitor.Add(
             humanoid.Died.Connect(() => {
-                this.StopAnimations(character);
+                this.StopAnimations(ownerId, character);
             }),
             "Disconnect",
             "Death",
@@ -195,24 +175,14 @@ export class Client_MovementAnimations implements OnStart {
         );
     }
 
-    private StopAnimations(charater: Model) {
-        this.api.animationsAPI.RemoveActorAnimator(
-            this.playerStringUserId,
-            "Default_Animator",
-            true,
-            false,
-        );
-        this.api.motionAPI.RemoveActorMotion(this.playerStringUserId, "Motion");
+    private StopAnimations(ownerId: string, charater: Model) {
+        this.api.animationsAPI.RemoveActorAnimator(ownerId, "Default_Animator", true, false);
+        this.api.motionAPI.RemoveActorMotion(ownerId, "Motion");
         this._characterJanitor.Cleanup();
     }
 
-    private StopAnimationsSafe(charater: Model) {
-        this.api.animationsAPI.RemoveActorAnimator(
-            this.playerStringUserId,
-            "Default_Animator",
-            true,
-            false,
-        );
-        this.api.motionAPI.RemoveActorMotion(this.playerStringUserId, "Motion");
+    private StopAnimationsSafe(ownerId: string, charater: Model) {
+        this.api.animationsAPI.RemoveActorAnimator(ownerId, "Default_Animator", true, false);
+        this.api.motionAPI.RemoveActorMotion(ownerId, "Motion");
     }
 }

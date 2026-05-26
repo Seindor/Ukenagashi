@@ -17,7 +17,7 @@ const mainBinds: Record<string, BindEntry> = {
     ["Critical"]: { inputTypes: [Enum.KeyCode.R] },
     ["Block"]: { inputTypes: [Enum.KeyCode.F] },
 
-    ["Equip"]: {
+    ["Special"]: {
         inputTypes: [Enum.KeyCode.E],
     },
 

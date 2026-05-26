@@ -1,9 +1,12 @@
 import {
     PhaseResolverContext,
+    PhaseResolverEmitFn,
     PhaseResolverPhase,
     PhaseResolverProperties,
     PhaseResolverResult,
 } from "../Types/PhaseResolverTypes";
+
+const noopEmit: PhaseResolverEmitFn = () => {};
 
 export class PhaseResolverAggregate<TContext extends PhaseResolverContext> {
     public ownerId: string;
@@ -34,7 +37,7 @@ export class PhaseResolverAggregate<TContext extends PhaseResolverContext> {
             this.phases.push(phase);
         }
 
-        this.phases.sort((a, b) => b.priority > a.priority);
+        this.phases.sort((a, b) => a.priority > b.priority);
     }
 
     public RemovePhase(phaseName: string) {
@@ -60,12 +63,14 @@ export class PhaseResolverAggregate<TContext extends PhaseResolverContext> {
         return [...this.phases];
     }
 
-    public Resolve(ctx: TContext): PhaseResolverResult<TContext> {
+    public Resolve(ctx: TContext, emit?: PhaseResolverEmitFn): PhaseResolverResult<TContext> {
+        const resolvedEmit = emit ?? noopEmit;
+
         for (const phase of this.phases) {
             const passed = phase.onCheck(ctx);
 
             if (passed) {
-                phase.onSuccess(ctx);
+                phase.onSuccess(ctx, resolvedEmit);
 
                 return {
                     resolved: true,

@@ -19,14 +19,14 @@ export class ClientStatusEffectsReplication implements OnStart {
 
         subscribe(atom.GetAtom(), (state) => {
             for (const [actorId, statuses] of pairs(state)) {
-                print(`${actorId} has RecievedStatuses:`, statuses);
+                // print(`${actorId} has RecievedStatuses:`, statuses);
 
                 replicatedStatusEffectsAPI.Set(actorId, statuses);
 
-                print(
-                    `${actorId} has ReplicatedStatusEffects:`,
-                    replicatedStatusEffectsAPI.GetReplicatedStatuses(actorId),
-                );
+                // print(
+                //     `${actorId} has ReplicatedStatusEffects:`,
+                //     replicatedStatusEffectsAPI.GetReplicatedStatuses(actorId),
+                // );
             }
         });
     }

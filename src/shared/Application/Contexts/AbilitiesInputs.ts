@@ -33,18 +33,23 @@ export class AbilitiesInputs implements OnStart {
                         if (entry.key !== inputName) continue;
 
                         if (state === "Start") {
-                            entry.ability?.AddState("Pressed");
+                            if (entry.type === "Hold") {
+                                entry.ability?.AddState("Holding");
+                            }
                         } else {
-                            entry.ability?.RemoveState("Pressed");
+                            if (entry.type === "Hold") {
+                                entry.ability?.RemoveState("Holding");
+                            }
 
                             if (entry.type === "Switch") continue;
                         }
 
                         if (entry.activatingType === "Manual") {
                             if (!entry.ability) continue;
+
                             abilityAPI.Execute(entry.ability, state, true, inputObject);
                         } else {
-                            ClientSignals.Ability.fire(entry.abilityName, state);
+                            ClientSignals.Ability.fire(entry.abilityName, entry.type, state);
                         }
                     }
                 }

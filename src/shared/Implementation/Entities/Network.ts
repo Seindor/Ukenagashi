@@ -24,10 +24,12 @@ export interface CutterData {
 }
 
 export interface ServerToClientSignals {
+    SetupMovementAnimations(ownerId: string, character: Model): void;
     SetupAbility(abilityData: { Path: string; Name: string; KeyCode: string; Type: string }): void;
     Ability(
         abilityName: string,
-        method: "Start" | "End" | "Reject",
+        abilityType: string,
+        method: "Start" | "End" | "Reject" | "Interrupt",
         check?: boolean,
         ...args: unknown[]
     ): void;
@@ -63,7 +65,12 @@ export interface ServerToClientSignals {
 }
 
 export interface ClientToServerSignals {
-    Ability(abilityName: string, method: "Start" | "End" | "Reject", ...args: unknown[]): void;
+    Ability(
+        abilityName: string,
+        abilityType: string,
+        method: "Start" | "End" | "Reject" | "Interrupt",
+        ...args: unknown[]
+    ): void;
 
     MoveMotor(
         ignorePlayer: boolean,

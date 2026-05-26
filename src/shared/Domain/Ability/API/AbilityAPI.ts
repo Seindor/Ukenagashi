@@ -58,6 +58,10 @@ export class AbilityAPI {
         this.service.Reject(ability, ...args);
     }
 
+    public Interrupt(ability: AbilityAggregate, ...args: unknown[]) {
+        this.service.Interrupt(ability, ...args);
+    }
+
     public AddTag(ability: AbilityAggregate, tag: string) {
         ability.AddTag(tag);
     }

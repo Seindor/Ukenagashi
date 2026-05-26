@@ -15,7 +15,8 @@ export class AbilitiesSignal implements OnStart {
             (
                 player: Player,
                 abilityName: string,
-                method: "Start" | "End" | "Reject",
+                abilityType: string,
+                method: "Start" | "End" | "Reject" | "Interrupt",
                 ...args: unknown[]
             ) => {
                 let playerStringUserId = tostring(player.UserId);
@@ -27,8 +28,18 @@ export class AbilitiesSignal implements OnStart {
                     return;
                 }
 
+                if (abilityType === "Hold") {
+                    if (method === "Start") {
+                        ability.AddState("Holding");
+                    } else {
+                        ability.RemoveState("Holding");
+                    }
+                }
+
                 if (method === "Reject") {
                     abilityAPI.Reject(ability, ...args);
+                } else if (method === "Interrupt") {
+                    abilityAPI.Interrupt(ability, ...args);
                 } else {
                     abilityAPI.Execute(ability, method, true, ...args);
                 }

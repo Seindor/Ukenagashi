@@ -1,4 +1,5 @@
 import { AbilityPackDefinition } from "../CreatePack";
+import { Block } from "./Block";
 import { M1 } from "./M1";
 
 export const SekiroPack = {
@@ -10,6 +11,13 @@ export const SekiroPack = {
             activatingType: "Manual",
             type: "Switch",
             ability: M1,
+        },
+        ["Block"]: {
+            key: "Block",
+            abilityName: "Sekiro_Block",
+            activatingType: "Manual",
+            type: "Hold",
+            ability: Block,
         },
     },
 } as AbilityPackDefinition;

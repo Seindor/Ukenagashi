@@ -135,7 +135,14 @@
 		"flamework:out/shared/Implementation/Entities/Network@GlobalSignals": "shared/Implementation/Entities/Network@GlobalSignals",
 		"flamework:out/shared/Domain/PhaseResolver/Aggregates/PhaseResolverAggregate@PhaseResolverAggregate": "shared/Domain/PhaseResolver/Aggregates/PhaseResolverAggregate@PhaseResolverAggregate",
 		"flamework:out/shared/Domain/PhaseResolver/Services/PhaseResolverService@PhaseResolverService": "shared/Domain/PhaseResolver/Services/PhaseResolverService@PhaseResolverService",
-		"flamework:out/shared/Domain/PhaseResolver/API/PhaseResolverAPI@PhaseResolverAPI": "shared/Domain/PhaseResolver/API/PhaseResolverAPI@PhaseResolverAPI"
+		"flamework:out/shared/Domain/PhaseResolver/API/PhaseResolverAPI@PhaseResolverAPI": "shared/Domain/PhaseResolver/API/PhaseResolverAPI@PhaseResolverAPI",
+		"flamework:out/server/Implementation/Entities/Solvers/DamageSolver@Damage": "server/Implementation/Entities/Solvers/DamageSolver@Damage",
+		"flamework:out/server/Application/StepRunner@GameEffectsAPI": "server/Application/StepRunner@GameEffectsAPI",
+		"flamework:out/server/Application/StepRunner@TracleClipAPI": "server/Application/StepRunner@TracleClipAPI",
+		"flamework:out/server/Implementation/Handlers/Blocking_Dummy@Blocking_Dummy": "server/Implementation/Handlers/Blocking_Dummy@Blocking_Dummy",
+		"flamework:out/shared/Application/Signals/ClientMovementAnimationsSignal@ClientMovementAnimationsSignal": "shared/Application/Signals/ClientMovementAnimationsSignal@ClientMovementAnimationsSignal",
+		"flamework:out/server/Implementation/Handlers/Dummy@Dummy": "server/Implementation/Handlers/Dummy@Dummy",
+		"flamework:out/server/Implementation/Handlers/Attack_Dummy@Attack_Dummy": "server/Implementation/Handlers/Attack_Dummy@Attack_Dummy"
 	},
 	"metadata": {}
 }

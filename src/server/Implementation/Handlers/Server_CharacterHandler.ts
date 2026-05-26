@@ -1,15 +1,22 @@
-import { Players } from "@rbxts/services";
+import { Workspace, Players } from "@rbxts/services";
 
 import Fusion, { Children } from "@rbxts/fusion";
 import { IApperancy } from "shared/Types/Gameplay/PlayerApperance";
 import { ServerAtomReplication } from "server/Application/ServerAtomReplication";
-import { Dependency } from "@flamework/core";
+import { Dependency, Service } from "@flamework/core";
 import { ServerSignals } from "shared/Implementation/Entities/SerrverSignals";
+
+import { SetupCombat } from "./Combat";
 
 import { SharedRegistry } from "shared/DI/Generated/SharedRegistry";
 import { CompositionRootShared } from "shared/DI/CompositionRootShared";
+import { ServerRegistry } from "server/DI/Generated/ServerRegistry";
+import { CompositionRootServer } from "server/DI/CompositionRootServer";
 
 let sharedScope = CompositionRootShared.createScope();
+let serverScope = CompositionRootServer.createScope();
+
+let statusEffectsAPI = serverScope.resolve(ServerRegistry.Singletons.API.StatusEffectsAPI);
 
 export class Server_CharacterHandler {
     public character: Model;
@@ -129,7 +136,7 @@ export class Server_CharacterHandler {
         this.createHandler("RH");
     }
 
-    constructor(character: Model) {
+    constructor(character: Model, id?: string, characterName?: string) {
         this.character = character;
         this.apperancy = this.createApperancy();
         this.apperancy.Parent = this.character;
@@ -138,8 +145,12 @@ export class Server_CharacterHandler {
         this.CreateHandlers();
 
         if (Players.GetPlayerFromCharacter(character)) {
+            character.Parent = Workspace.WaitForChild("Map").WaitForChild("Players");
             let player = Players.GetPlayerFromCharacter(character)!;
             let playerStringUserId = tostring(player?.UserId);
+            let entity = this.api.entitiesStorageAPI.AddEntity(playerStringUserId, character);
+            character.AddTag("Player");
+            entity.AddTag("Player");
 
             const atomReplication = Dependency<ServerAtomReplication>();
 
@@ -149,12 +160,34 @@ export class Server_CharacterHandler {
 
             const playerData = atomReplication.GetPlayersDataAtom().Get(playerStringUserId)!;
 
+            entity.miscData.set("CharacterName", playerData.Equipment.Character.Name);
+            SetupCombat(playerStringUserId, playerData.Equipment.Character.Name);
+
+            entity.miscData.set("LastLaunchedVFX", [
+                player,
+                playerData.Equipment.Character.Name,
+                "Spawn",
+                playerStringUserId,
+                character,
+            ]);
+
             ServerSignals.LaunchVFX.except(
                 player,
                 playerData.Equipment.Character.Name,
                 "Spawn",
+                playerStringUserId,
                 character,
             );
+
+            statusEffectsAPI.RemoveAllStatuses(playerStringUserId);
+        } else {
+            if (!id || !characterName) return;
+            character.Parent = Workspace.WaitForChild("Map").WaitForChild("NPCs");
+            let entity = this.api.entitiesStorageAPI.AddEntity(id, character);
+            entity.miscData.set("CharacterName", characterName);
+            SetupCombat(id, characterName);
+
+            character.AddTag("NPC");
         }
     }
 }

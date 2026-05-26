@@ -17,6 +17,7 @@ export class Client_SetupAbilities implements OnStart {
 
     public api = {
         eventBusAPI: sharedScope.resolve(SharedRegistry.Singletons.API.EventBusAPI),
+        abilityAPI: sharedScope.resolve(SharedRegistry.Singletons.API.AbilityAPI),
     };
 
     public buses = {
@@ -31,6 +32,27 @@ export class Client_SetupAbilities implements OnStart {
             (character: Model) => {
                 const atomReplication = Dependency<ClientAtomReplication>();
                 const playerData = atomReplication.GetLocalPlayerData()!;
+
+                for (const pack of this.currentPacks) {
+                    const keys = [] as string[];
+
+                    for (const [key] of pairs(pack)) {
+                        keys.push(key);
+                    }
+
+                    for (const key of keys) {
+                        const ability = pack[key];
+
+                        if (ability?.ability) {
+                            this.api.abilityAPI.Remove(
+                                this.playerStringUserId,
+                                ability.ability.config.name,
+                            );
+
+                            delete pack[key];
+                        }
+                    }
+                }
 
                 this.currentPacks.push(CreatePack("Default", this.playerStringUserId));
                 this.currentPacks.push(

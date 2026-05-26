@@ -24,6 +24,7 @@ export function Run(ownerId: string) {
             ownerId,
             [
                 { status: "Stun", event: "Added" },
+                { status: "Block", event: "Added" },
                 { status: "WeaponClick", event: "Added" },
                 { status: "Knocked", event: "Added" },
                 { status: "Dead", event: "Added" },
@@ -34,7 +35,7 @@ export function Run(ownerId: string) {
             "Run_InterruptSubscribe",
         );
 
-        ClientSignals.Ability.fire("Default_Run", "Start");
+        ClientSignals.Ability.fire("Default_Run", "Hold", "Start");
         getHumanoid().WalkSpeed = 20;
         ability.config.miscData!.set("IsSprinting", true);
     };
@@ -42,13 +43,13 @@ export function Run(ownerId: string) {
     const stopSprint = (ignoreCheck?: boolean) => {
         if (!ability.config.miscData!.get("IsSprinting")! && !ignoreCheck) return;
 
-        ClientSignals.Ability.fire("Default_Run", "End", true);
+        ClientSignals.Ability.fire("Default_Run", "Hold", "End", true);
         getHumanoid().WalkSpeed = 12;
 
-        ability.config.cooldown = 1;
+        ability.config.cooldown = 0.5;
         ability._janitor.Remove("ChangeCooldown");
         ability._janitor.Add(
-            task.delay(1, () => {
+            task.delay(0.5, () => {
                 ability.config.cooldown = 0;
             }),
             true,
@@ -62,6 +63,7 @@ export function Run(ownerId: string) {
             name: "Default_Run",
             ownerId,
             states: ["Idle"],
+            additionalBlacklist: ["Dash", "Block", "WeaponClick"],
             lastUsed: 0,
             types: [{ name: "Movement", level: 1 }],
             cooldown: 0,

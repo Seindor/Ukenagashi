@@ -26,6 +26,7 @@ export class MovementInputs implements OnStart {
         const eventBusAPI = sharedScope.resolve(SharedRegistry.Singletons.API.EventBusAPI);
 
         const inputsBus = eventBusAPI.New(tostring(player.UserId), "Inputs");
+        return;
 
         for (const [inputName, keyCode] of pairs(inputs)) {
             contextsAPI.BindActionAtPriority("MovementInputs", {
